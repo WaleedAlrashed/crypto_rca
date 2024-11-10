@@ -23,39 +23,45 @@ class MarketPage extends StatelessWidget {
               child: CircularProgressIndicator(),
             );
           } else if (state is MarketLoaded) {
-            return ListView.builder(
-              addAutomaticKeepAlives: true,
-              itemCount: state.marketData.length,
-              itemBuilder: (context, index) {
-                final marketSymbol = state.marketData[index];
-                return Card(
-                  margin:
-                      const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  elevation: 3,
-                  child: RepaintBoundary(
-                    child: ListTile(
-                      key: ValueKey("${marketSymbol.symbol} $index"),
-                      contentPadding: const EdgeInsets.all(8),
-                      title: Text(
-                        marketSymbol.symbol,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+            return RefreshIndicator(
+              onRefresh: () async {
+                // Dispatch the FetchMarketData event to refresh data
+                context.read<MarketBloc>().add(FetchMarketData());
+              },
+              child: ListView.builder(
+                addAutomaticKeepAlives: true,
+                itemCount: state.marketData.length,
+                itemBuilder: (context, index) {
+                  final marketSymbol = state.marketData[index];
+                  return Card(
+                    margin:
+                        const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    elevation: 3,
+                    child: RepaintBoundary(
+                      child: ListTile(
+                        key: ValueKey("${marketSymbol.symbol} $index"),
+                        contentPadding: const EdgeInsets.all(8),
+                        title: Text(
+                          marketSymbol.symbol,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Price: \$${marketSymbol.price.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ],
                         ),
                       ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Price: \$${marketSymbol.price.toStringAsFixed(2)}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ],
-                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             );
           } else if (state is MarketError) {
             return Center(
