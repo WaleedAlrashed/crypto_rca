@@ -19,6 +19,11 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
         emit(marketState);
       }
 
+      //
+      //note: it is better suited to use websockets if such api exists
+      //web sockets allows us to fetch the data from the stream when there's new data available
+      //rather than having periodic fetch timer.
+      //
       fetchTimer = Timer.periodic(Duration(seconds: fetchOccurance), (timer) {
         add(FetchMarketData());
       });
