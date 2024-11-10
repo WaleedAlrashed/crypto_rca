@@ -1,30 +1,70 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+import 'package:bloc_test/bloc_test.dart';
+import 'package:crypto_rca/core/config/config.dart';
+import 'package:crypto_rca/features/market/bloc/market_bloc.dart';
+import 'package:crypto_rca/features/market/bloc/market_event.dart';
+import 'package:crypto_rca/features/market/bloc/market_state.dart';
+import 'package:crypto_rca/features/market/data/market_symbol.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:mockito/mockito.dart';
+import 'dart:convert';
 
-import 'package:crypto_rca/main.dart';
+// Mock class for http.Client
+class MockHttpClient extends Mock implements http.Client {}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('MarketBloc', () {
+    late MarketBloc marketBloc;
+    late MockHttpClient mockHttpClient;
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    setUp(() {
+      mockHttpClient = MockHttpClient();
+      marketBloc = MarketBloc();
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    tearDown(() {
+      marketBloc.close();
+    });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('initial state is MarketInitial', () {
+      expect(marketBloc.state, MarketInitial());
+    });
+
+    blocTest<MarketBloc, MarketState>(
+      'emits [MarketLoading, MarketLoaded] when FetchMarketData is added and data is fetched successfully',
+      build: () {
+        when(mockHttpClient.get(Uri.parse(Config.apiUrl)))
+            .thenAnswer((_) async => http.Response(
+                  json.encode([
+                    {'symbol': 'BTCUSD', 'price': 45000.0},
+                    {'symbol': 'ETHUSD', 'price': 3000.0},
+                  ]),
+                  200,
+                ));
+        return marketBloc;
+      },
+      act: (bloc) => bloc.add(FetchMarketData()),
+      expect: () => [
+        MarketLoading(),
+        MarketLoaded([
+          MarketSymbol(symbol: 'BTCUSD', price: 45000.0),
+          MarketSymbol(symbol: 'ETHUSD', price: 3000.0),
+        ]),
+      ],
+    );
+
+    blocTest<MarketBloc, MarketState>(
+      'emits [MarketLoading, MarketError] when FetchMarketData is added and an error occurs',
+      build: () {
+        when(mockHttpClient.get(Uri.parse(Config.apiUrl)))
+            .thenThrow(Exception('Failed to load market data'));
+        return marketBloc;
+      },
+      act: (bloc) => bloc.add(FetchMarketData()),
+      expect: () => [
+        MarketLoading(),
+        isA<MarketError>(),
+      ],
+    );
   });
 }
