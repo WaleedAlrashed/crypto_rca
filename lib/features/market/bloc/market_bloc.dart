@@ -1,4 +1,3 @@
-// market_bloc.dart
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:crypto_rca/core/config/config.dart';
@@ -9,6 +8,7 @@ import 'market_event.dart';
 import 'market_state.dart';
 
 class MarketBloc extends Bloc<MarketEvent, MarketState> {
+  Timer? fetchTimer;
   MarketBloc() : super(MarketInitial()) {
     on<FetchMarketData>((event, emit) async {
       emit(MarketLoading());
@@ -18,11 +18,16 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
       } else if (marketState is MarketError) {
         emit(marketState);
       }
+
+      fetchTimer = Timer.periodic(Duration(seconds: fetchOccurance), (timer) {
+        add(FetchMarketData());
+      });
     });
   }
 
   final int maxRetries = 3;
   final int baseDelay = 2;
+  final int fetchOccurance = 10;
 
   Future<MarketState> _fetchMarketDataWithRetry(
       Emitter<MarketState> emit) async {
@@ -37,17 +42,30 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
               data.map((json) => MarketSymbol.fromJson(json)).toList();
           return MarketLoaded(marketSymbols);
         } else {
-          throw Exception('Failed to load market data');
+          return MarketError(
+              "Error fetching market data: API error ${response.statusCode}");
         }
       } catch (error) {
         attempt++;
         if (attempt >= maxRetries) {
-          return MarketError("Error fetching market data: $error");
+          return MarketError(
+            "Exception occured when fetching market data: $error",
+          );
         } else {
-          await Future.delayed(Duration(seconds: baseDelay * attempt));
+          await Future.delayed(
+            Duration(
+              seconds: baseDelay * attempt,
+            ),
+          );
         }
       }
     }
     return MarketError("Max retries reached");
+  }
+
+  @override
+  Future<void> close() {
+    fetchTimer?.cancel();
+    return super.close();
   }
 }
