@@ -1,70 +1,113 @@
 import 'package:bloc_test/bloc_test.dart';
-import 'package:crypto_rca/core/config/config.dart';
+import 'package:crypto_rca/features/market/data/market_symbol.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:crypto_rca/features/market/bloc/market_bloc.dart';
 import 'package:crypto_rca/features/market/bloc/market_event.dart';
 import 'package:crypto_rca/features/market/bloc/market_state.dart';
-import 'package:crypto_rca/features/market/data/market_symbol.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
+import 'package:crypto_rca/features/market/presentation/market_page.dart';
 import 'package:mockito/mockito.dart';
-import 'dart:convert';
 
-// Mock class for http.Client
-class MockHttpClient extends Mock implements http.Client {}
+class MockMarketBloc extends MockBloc<MarketEvent, MarketState>
+    implements MarketBloc {}
 
 void main() {
-  group('MarketBloc', () {
+  group('MarketPage', () {
     late MarketBloc marketBloc;
-    late MockHttpClient mockHttpClient;
 
     setUp(() {
-      mockHttpClient = MockHttpClient();
-      marketBloc = MarketBloc();
+      marketBloc = MockMarketBloc();
     });
 
-    tearDown(() {
-      marketBloc.close();
+    testWidgets('displays loading indicator when state is MarketLoading',
+        (WidgetTester tester) async {
+      // Arrange
+      whenListen(marketBloc, Stream.fromIterable([MarketLoading()]));
+
+      // Act
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BlocProvider<MarketBloc>(
+            create: (context) => marketBloc,
+            child: const MarketPage(),
+          ),
+        ),
+      );
+
+      // Assert
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
-    test('initial state is MarketInitial', () {
-      expect(marketBloc.state, MarketInitial());
+    testWidgets('displays market data when state is MarketLoaded',
+        (WidgetTester tester) async {
+      // Arrange
+      final marketData = [
+        MarketSymbol(symbol: 'BTCUSD', price: 45000.0),
+        MarketSymbol(symbol: 'ETHUSD', price: 3000.0),
+        MarketSymbol(symbol: 'BTCUSD', price: 4000.0),
+      ];
+      whenListen(marketBloc, Stream.fromIterable([MarketLoaded(marketData)]));
+
+      // Act
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BlocProvider<MarketBloc>(
+            create: (context) => marketBloc,
+            child: const MarketPage(),
+          ),
+        ),
+      );
+
+      // Assert
+      expect(find.text('BTCUSD'), findsOneWidget);
+      expect(find.text('Price: \$45000.00'), findsOneWidget);
+      expect(find.text('ETHUSD'), findsOneWidget);
+      expect(find.text('Price: \$3000.00'), findsOneWidget);
     });
 
-    blocTest<MarketBloc, MarketState>(
-      'emits [MarketLoading, MarketLoaded] when FetchMarketData is added and data is fetched successfully',
-      build: () {
-        when(mockHttpClient.get(Uri.parse(Config.apiUrl)))
-            .thenAnswer((_) async => http.Response(
-                  json.encode([
-                    {'symbol': 'BTCUSD', 'price': 45000.0},
-                    {'symbol': 'ETHUSD', 'price': 3000.0},
-                  ]),
-                  200,
-                ));
-        return marketBloc;
-      },
-      act: (bloc) => bloc.add(FetchMarketData()),
-      expect: () => [
-        MarketLoading(),
-        MarketLoaded([
-          MarketSymbol(symbol: 'BTCUSD', price: 45000.0),
-          MarketSymbol(symbol: 'ETHUSD', price: 3000.0),
-        ]),
-      ],
-    );
+    testWidgets('displays error message when state is MarketError',
+        (WidgetTester tester) async {
+      // Arrange
+      whenListen(marketBloc,
+          Stream.fromIterable([MarketError('Failed to load data')]));
 
-    blocTest<MarketBloc, MarketState>(
-      'emits [MarketLoading, MarketError] when FetchMarketData is added and an error occurs',
-      build: () {
-        when(mockHttpClient.get(Uri.parse(Config.apiUrl)))
-            .thenThrow(Exception('Failed to load market data'));
-        return marketBloc;
-      },
-      act: (bloc) => bloc.add(FetchMarketData()),
-      expect: () => [
-        MarketLoading(),
-        isA<MarketError>(),
-      ],
-    );
+      // Act
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BlocProvider<MarketBloc>(
+            create: (context) => marketBloc,
+            child: const MarketPage(),
+          ),
+        ),
+      );
+
+      // Assert
+      expect(find.text('Error: Failed to load data'), findsOneWidget);
+    });
+
+    testWidgets('displays unexpected state message with retry button',
+        (WidgetTester tester) async {
+      // Arrange
+      whenListen(marketBloc, Stream.fromIterable([MarketInitial()]));
+
+      // Act
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BlocProvider<MarketBloc>(
+            create: (context) => marketBloc,
+            child: const MarketPage(),
+          ),
+        ),
+      );
+
+      // Assert
+      expect(find.text('Unexpected state'), findsOneWidget);
+      expect(find.byType(TextButton), findsOneWidget);
+
+      // Simulate button press
+      await tester.tap(find.byType(TextButton));
+      verify(marketBloc.add(FetchMarketData())).called(1);
+    });
   });
 }
