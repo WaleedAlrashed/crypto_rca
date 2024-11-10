@@ -1,5 +1,6 @@
 import 'package:crypto_rca/core/config/config.dart';
 import 'package:crypto_rca/features/market/bloc/market_bloc.dart';
+import 'package:crypto_rca/features/market/bloc/market_event.dart';
 import 'package:crypto_rca/features/market/bloc/market_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -31,23 +32,26 @@ class MarketPage extends StatelessWidget {
                   margin:
                       const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                   elevation: 3,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(8),
-                    title: Text(
-                      marketSymbol.symbol,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Price: \$${marketSymbol.price.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 16),
+                  child: RepaintBoundary(
+                    child: ListTile(
+                      key: ValueKey("${marketSymbol.symbol} $index"),
+                      contentPadding: const EdgeInsets.all(8),
+                      title: Text(
+                        marketSymbol.symbol,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Price: \$${marketSymbol.price.toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -61,7 +65,19 @@ class MarketPage extends StatelessWidget {
               ),
             );
           } else {
-            return const Center(child: Text('Unexpected state'));
+            return Center(
+              child: Column(
+                children: [
+                  const Text('Unexpected state'),
+                  TextButton(
+                    onPressed: () {
+                      context.read<MarketBloc>().add(FetchMarketData());
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
           }
         },
       ),

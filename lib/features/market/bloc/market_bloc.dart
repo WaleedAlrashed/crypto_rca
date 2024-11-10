@@ -18,7 +18,6 @@ class MarketBloc extends Bloc<MarketEvent, MarketState> {
       } else if (marketState is MarketError) {
         emit(marketState);
       }
-
       //
       //note: it is better suited to use websockets if such api exists
       //web sockets allows us to fetch the data from the stream when there's new data available
