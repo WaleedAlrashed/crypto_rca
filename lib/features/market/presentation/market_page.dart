@@ -4,8 +4,8 @@ import 'package:crypto_rca/features/market/bloc/market_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-class MarketScreen extends StatelessWidget {
-  const MarketScreen({super.key});
+class MarketPage extends StatelessWidget {
+  const MarketPage({super.key});
 
   @override
   Widget build(BuildContext context) {
